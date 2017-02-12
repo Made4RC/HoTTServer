@@ -5,7 +5,7 @@
  * Sensor
  * The sender, that responds to a request by a server (reciever), acts as server.
  *
-  *
+ *
  * Arduino Micro 5v/16mHz w/ Atmega 328
  *
  * Userful links:
@@ -28,24 +28,30 @@
 #define HoTTServer_h HoTTServer_h
 
 #include "Arduino.h"
+#include "SoftwareSerial.h"
 
 // Protocoll definitions
 
 // Graupner #33620 Electric Air Module (EAM)
 #define HOTT_ELECTRIC_AIR_MODULE_ID					0x8E
 #define HOTT_ELECTRIC_AIR_SENSOR_ID					0xE0
+#define HOTT_TEXT_MODE_REQUEST_ELECTRIC_AIR			0xEF
 // Graupner #33611 General Air Module (GAM)
 #define HOTT_GENERAL_AIR_MODULE_ID					0x8D
 #define HOTT_GENERAL_AIR_SENSOR_ID					0xD0 
+#define HOTT_TEXT_MODE_REQUEST_GENERAL_AIR			0xDF 
 // Graupner #33600 GPS module
 #define HOTT_GPS_MODULE_ID							0x8A
 #define HOTT_GPS_SENSOR_ID							0xA0
+#define HOTT_TEXT_MODE_REQUEST_GPS					0xAF
 // Graupner #33601 Vario Module
 #define HOTT_VARIO_MODULE_ID						0x89
 #define HOTT_VARIO_SENSOR_ID						0x90
+#define HOTT_TEXT_MODE_REQUEST_VARIO				0x9F
 //Graupner #337xx Air ESC 
-#define HOTT_AIRESC_MODULE_ID						0x8c
+#define HOTT_AIRESC_MODULE_ID						0x8C
 #define HOTT_AIRESC_SENSOR_ID						0xc0 
+#define HOTT_TEXT_MODE_REQUEST_AIRESC				0xCF 
 
 
 // inverted characters
@@ -162,6 +168,11 @@ typedef enum {
 	HOTT_Z_AXIS = 2
 } HOTTAxis_e;
 
+#define HoTTServerGAM	0
+#define HoTTServerEAM	1
+#define HoTTServerVario	2
+#define HoTTServerGPS	3
+#define HoTTServerESC	4
 
 class HoTTServer {
 
@@ -230,12 +241,17 @@ private:
 	uint8_t _gyroY;
 	uint8_t _gyroZ;
 	uint8_t _homeDirection;
-
+	
+	uint8_t _registeredModules;
+	
 	void _sendData(uint8_t *data, uint8_t size);
+	bool _isModuleRegistered(uint8_t module);
 
 public:
 	HoTTServer();
 	
+	void registerModule(uint8_t module);
+	void start();
 	void processRequest();
 	
 	void setWarning(HOTTAlarm_e warningID);
