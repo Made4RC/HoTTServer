@@ -1,35 +1,52 @@
-#include "Arduino.h"
 #include "HoTTServer.h"
+
+SoftwareSerial swSerial(10,11);
 
 HoTTServer::HoTTServer() {
 	setWarning(HOTT_ALARM_NONE);
+}
 
-    Serial.begin(19200);
+void HoTTServer::registerModule(uint8_t module) {
+	bitSet(_registeredModules, module);
+}
+
+void HoTTServer::start() {
+	swSerial.begin(19200);
 }
 
 void HoTTServer::_sendData(uint8_t *data, uint8_t size) {
-	// Checksum berechnen
-	uint8_t sum = 0;
-	for(int i = 0; i < size-1; i++){
-		sum += data[i];
+	// Checksum berechnen bei Binary Mode
+	if (size == 45) {
+		uint8_t sum = 0;
+		for(int i = 0; i < size-1; i++){
+			sum += data[i];
+		}
+		data[size-1] = sum;
 	}
-	data[44] = sum;
 
 	// Daten senden
 	for(int j = 0; j < size; j++){
-		Serial.write(data[j]);
+		swSerial.write(data[j]);
 		delay(2);
-		Serial.read();
+		swSerial.read();
 	}
 }
 
+bool HoTTServer::_isModuleRegistered(uint8_t module) {
+	if (bitRead(_registeredModules, module) == 0)
+		return 0;
+	else
+		return 1;
+}
+
 void HoTTServer::processRequest() {
-	if (Serial.available() >= 2) {
-		uint8_t requestMode = Serial.read();
+	if (swSerial.available() >= 2) {
+		uint8_t requestMode = swSerial.read();
+		uint8_t requestID = swSerial.read();
+
 		switch (requestMode) {
 			case HOTT_TEXT_MODE_REQUEST_ID:
 			{
-				uint8_t requestID = Serial.read();
 				switch (requestID & 0x0f) { 
 						case HOTT_TEXT_MODE_IDLE: 
 							break; 
@@ -44,93 +61,139 @@ void HoTTServer::processRequest() {
 						case HOTT_KEY_SET: 
 							break; 
 				}
-				
+
 				// Text mode msgs type 
 				uint8_t textData[] = {  
 					0x7B, 										/*   0									start */
 					0x00,										/*   1                           		fill byte */
 					0x00,										/*   2									warning */
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*   3,   4,   5,   6,   7,   8,   9	ASCII - Line 1 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  10,  11,  12,  13,  14,  15,  16	ASCII - Line 1 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  17,  18,  19,  20,  21,  22,  23	ASCII - Line 1 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  24,  25,  26,  27,  28,  29,  30	ASCII - Line 2 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  31,  32,  33,  34,  35,  36,  37	ASCII - Line 2 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  38,  39,  40,  41,  42,  43,  44	ASCII - Line 2 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  45,  46,  47,  48,  49,  50,  51	ASCII - Line 3 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  52,  53,  54,  55,  56,  57,  58	ASCII - Line 3 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  59,  60,  61,  62,  63,  64,  65	ASCII - Line 3 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  66,  67,  68,  69,  70,  71,  72	ASCII - Line 4 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  73,  74,  75,  76,  77,  78,  79	ASCII - Line 4 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  80,  81,  82,  83,  84,  85,  86	ASCII - Line 4 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  87,  88,  89,  90,  91,  92,  93	ASCII - Line 5 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  94,  95,  96,  97,  98,  99, 100	ASCII - Line 5 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 101, 102, 103, 104, 105, 106, 107	ASCII - Line 5 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 108, 109, 110, 111, 112, 113, 114	ASCII - Line 6 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 115, 116, 117, 118, 119, 120, 121	ASCII - Line 6 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 122, 123, 124, 125, 126, 127, 128	ASCII - Line 6 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 129, 130, 131, 132, 133, 134, 135	ASCII - Line 7 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 136, 137, 138, 139, 140, 141, 142	ASCII - Line 7 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 143, 144, 145, 146, 147, 148, 149	ASCII - Line 7 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 150, 151, 152, 153, 154, 155, 156	ASCII - Line 8 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 157, 158, 159, 160, 161, 162, 163	ASCII - Line 8 */ 
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 164, 165, 166, 167, 168, 169, 170	ASCII - Line 8 */ 							
+					0x48, 0x6F, 0x54, 0x54, 0x53, 0x65, 0x72,	/*   3,   4,   5,   6,   7,   8,   9	ASCII - Line 1 */ 
+					0x76, 0x65, 0x72, 0x20, 0x20, 0x20, 0x20,	/*  10,  11,  12,  13,  14,  15,  16	ASCII - Line 1 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  17,  18,  19,  20,  21,  22,  23	ASCII - Line 1 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  24,  25,  26,  27,  28,  29,  30	ASCII - Line 2 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  31,  32,  33,  34,  35,  36,  37	ASCII - Line 2 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  38,  39,  40,  41,  42,  43,  44	ASCII - Line 2 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  45,  46,  47,  48,  49,  50,  51	ASCII - Line 3 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  52,  53,  54,  55,  56,  57,  58	ASCII - Line 3 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  59,  60,  61,  62,  63,  64,  65	ASCII - Line 3 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  66,  67,  68,  69,  70,  71,  72	ASCII - Line 4 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  73,  74,  75,  76,  77,  78,  79	ASCII - Line 4 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  80,  81,  82,  83,  84,  85,  86	ASCII - Line 4 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  87,  88,  89,  90,  91,  92,  93	ASCII - Line 5 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/*  94,  95,  96,  97,  98,  99, 100	ASCII - Line 5 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 101, 102, 103, 104, 105, 106, 107	ASCII - Line 5 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 108, 109, 110, 111, 112, 113, 114	ASCII - Line 6 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 115, 116, 117, 118, 119, 120, 121	ASCII - Line 6 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 122, 123, 124, 125, 126, 127, 128	ASCII - Line 6 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 129, 130, 131, 132, 133, 134, 135	ASCII - Line 7 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 136, 137, 138, 139, 140, 141, 142	ASCII - Line 7 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 143, 144, 145, 146, 147, 148, 149	ASCII - Line 7 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 150, 151, 152, 153, 154, 155, 156	ASCII - Line 8 */ 
+					0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,	/* 157, 158, 159, 160, 161, 162, 163	ASCII - Line 8 */ 
+					0x20, 0x20, 0x20, 0x20, 0x3C, 0x3C, 0x3C,	/* 164, 165, 166, 167, 168, 169, 170	ASCII - Line 8 */ 							
 					0x7D,										/* 171									End sign */ 
 					0x00										/* 172									Checksum */ 
 				}; 
 
-				textData[2] = _warningID;
+				if (requestID == HOTT_TEXT_MODE_REQUEST_ELECTRIC_AIR && _isModuleRegistered(HoTTServerEAM) ) {
+					textData[45] = 'E';
+					textData[46] = 'A';
+					textData[47] = 'M';
+					_sendData(textData, 173);
+				} else if (requestID == HOTT_TEXT_MODE_REQUEST_GENERAL_AIR && _isModuleRegistered(HoTTServerGAM) ) {
+					textData[45] = 'G';
+					textData[46] = 'A';
+					textData[47] = 'M';
+					_sendData(textData, 173);
+				} else if (requestID == HOTT_TEXT_MODE_REQUEST_VARIO && _isModuleRegistered(HoTTServerVario) ) {
+					textData[45] = 'V';
+					textData[46] = 'a';
+					textData[47] = 'r';
+					textData[48] = 'i';
+					textData[49] = 'o';
+					_sendData(textData, 173);
+				} else if (requestID == HOTT_TEXT_MODE_REQUEST_GPS && _isModuleRegistered(HoTTServerGPS) ) {
+					textData[45] = 'G';
+					textData[46] = 'P';
+					textData[47] = 'S';
+					_sendData(textData, 173);
+				} else if (requestID == HOTT_TEXT_MODE_REQUEST_AIRESC && _isModuleRegistered(HoTTServerESC) ) {
+					textData[45] = 'A';
+					textData[46] = 'i';
+					textData[47] = 'r';
+					textData[48] = 'E';
+					textData[49] = 'S';
+					textData[50] = 'C';
 
-				// Textmeldung Zeile 1
-				for (uint8_t i = 0; i < 21; i++) {
-					textData[3+i] = _message[i];
+					// Textmeldung Zeile 1
+					for (uint8_t i = 0; i < 21; i++) {
+						//textData[3+i] = _message[i];
+					}
+
+					_sendData(textData, 173);
 				}
+				
+				//textData[2] = _warningID;
 
-				_sendData(textData, 173);
 			}
 			break;
 			case HOTT_BINARY_MODE_REQUEST_ID:
 			{
-				uint8_t  requestID = Serial.read();
+				uint8_t telemetryData[] = {  
+					0x7C, 										/*  0	Start Byte */
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x00,	0x00, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x00,	0x00, 0x00, 0x00, 0x00, 0x00,		
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,		
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+					0x00, 0x00, 0x00, 0x00,	0x00, 0x00,	0x00,		
+					0x7D,										/* 43	End sign */ 
+					0x00										/* 44	Checksum */ 
+				}; 
+				uint8_t OFFSET_STEIGRATE = 117;
+				int steigrate_meter = 0;
+				float rest = 0;
+				int OFFSET_DEZIMETER = 40;
+				int steigrate_dezimeter = 0;
+				
+				if (requestID == HOTT_ELECTRIC_AIR_MODULE_ID && _isModuleRegistered(HoTTServerEAM) ) {
 /*
-    Serial.print("requestMode: '0x");
-    Serial.print(requestMode, HEX);
-    Serial.print("', requestID: '0x");
-    Serial.print(requestID, HEX);
-    Serial.println("'");
-*/
-				switch (requestID) {
-#ifdef HOTT_ELECTRIC_AIR_MODULE
-				case HOTT_ELECTRIC_AIR_MODULE_ID:
-						uint8_t telemetryData[] = {  
-							0x7C, 
-							HOTT_ELECTRIC_AIR_MODULE_ID,  
-							0x00,										/* 2							Alarm */ 
-							HOTT_ELECTRIC_AIR_SENSOR_ID, 
-							0x00, 0x00,									/* 4, 5							Inverted Value 1 and 2 */ 
-							0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/*  6,  7,  8,  9, 10, 11, 12	Cell Voltage 1-7, LSB, in [2mV]/step */ 
-							0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 13, 14, 15, 16, 17, 18, 19	Cell Voltage 1-7, MSB, in [2mV]/step */ 
-							0x00, 0x00,									/* 20, 21						Battetry 1, LSB/MSB, in [100mV]/step, 50 == 5V */ 
-							0x00, 0x00,									/* 22, 23						Battetry 2, LSB/MSB, in [100mV]/step, 50 == 5V */ 
-							0x14,										/* 24							Temp 1, Offset -20, 20 == 0, in [°C] */  
-							0x14,										/* 25							Temp 2, Offset -20, 20 == 0, in [°C] */ 
-							0xF4, 0x01,									/* 26, 27						Altitude, Offset -500, 500 == 0, in [m] */ 
-							0x00, 0x00,									/* 28, 29						Current, LSB/MSB in [100mA]/step, 1 = 0.1A */ 
-							0x00, 0x00,									/* 30, 31						Drive Voltage, LSB/MSB */ 
-							0x00, 0x00,									/* 32, 33						Capacity, LSB/MSB, in [mAh] */ 
-							0x48, 0x00,									/* 34, 35						FIXME climbrate ? m2s */  
-							0x78,										/* 36							FIXME climbrate ? m3s */ 
-							0x00, 0x00,									/* 37, 38						RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm */ 
-							0x00,										/* 39							Electric minutes */ 
-							0x00,										/* 40							Electric seconds */ 
-							0x00,										/* 41							Speed, in [km/h] */ 
-							0x00,										/* 42							Version Number */ 
-							0x7D,										/* 43							End sign */ 
-							0x00										/* 44							Checksum */ 
-						}; 
+ 0
+ 1
+ 2							Alarm
+ 3
+ 4, 5						Inverted Value 1 and 2
+ 6,  7,  8,  9, 10, 11, 12	Cell Voltage 1-7, LSB, in [2mV]/step
+13, 14, 15, 16, 17, 18, 19	Cell Voltage 1-7, MSB, in [2mV]/step
+20, 21						Battetry 1, LSB/MSB, in [100mV]/step, 50 == 5V
+22, 23						Battetry 2, LSB/MSB, in [100mV]/step, 50 == 5V
+24							Temp 1, Offset -20, 20 == 0, in [°C]
+25							Temp 2, Offset -20, 20 == 0, in [°C]
+26, 27						Altitude, Offset -500, 500 == 0, in [m]
+28, 29						Current, LSB/MSB in [100mA]/step, 1 = 0.1A
+30, 31						Drive Voltage, LSB/MSB
+32, 33						Capacity, LSB/MSB, in [mAh]
+34, 35						FIXME climbrate ? m2s
+36							FIXME climbrate ? m3s
+37, 38						RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm
+39							Electric minutes
+40							Electric seconds
+41							Speed, in [km/h]
+42							Version Number
+43							End sign
+44							
+ */ 
 
+						telemetryData[1] = HOTT_ELECTRIC_AIR_MODULE_ID;
+
+						// Warnings
 						telemetryData[2] = _warningID;
+
+						telemetryData[3] = HOTT_ELECTRIC_AIR_SENSOR_ID;
+
+						// show inverted
 						telemetryData[4] = _inverted1;
-						telemetryData[5] = _inverted2;
+						telemetryData[5] = _inverted1;
 
 						// battery voltages
 						telemetryData[20] = lowByte((uint16_t)(_voltage1*10));
@@ -159,43 +222,44 @@ void HoTTServer::processRequest() {
 						telemetryData[33] = highByte((uint16_t)(_capacity/10));
 
 						_sendData(telemetryData, 45);
+				} else if (requestID == HOTT_GENERAL_AIR_MODULE_ID && _isModuleRegistered(HoTTServerGAM) ) {
+/*
+ 0
+ 1
+ 2							Alarm
+ 3
+ 4,  5						Inverted Value 1 and 2
+ 6,  7,  8,  9, 10, 11		Voltage Cell 1-6, in [2mV]/step
+12, 13						Battetry 1, LSB/MSB, in [100mV]/step, 50 == 5V
+14, 15						Battetry 2, LSB/MSB, in [100mV]/step, 50 == 5V
+16							Temp 1, Offset -20, in [°C]
+17							Temp 2, Offset -20, in [°C]
+18							Fuel percentage
+19, 20						Fuel, LSB/MSB, in  [mL] (milliliter)
+21, 22						RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm
+23, 24						Altitude, LSB/MSB, Offset -500, 500 = 0m
+25, 26						Climb rate, FIXME, in m/1s
+27							Climb rate, FIXME, in m/3s
+28, 29						Current, LSB/MSB in 100mA steps, 1 = 0.1A
+30, 31						Main voltage, LSB/MSB
+32, 33						Capacity, LSB/MSB, in [mAh]
+34, 35						Speed, in [km/h]
+36							min. cell voltage
+37							Cell number with min. voltage
+38, 39						RPM2, LSB/MSB, [10rev]/step, 300 == 3000rpm
+40							General error number
+41							Pressure
+42							Version Number
+43							End sign
+44							Checksum
+*/ 
 
-						break;
-#endif
-#ifdef HOTT_GENERAL_AIR_MODULE
-					case HOTT_GENERAL_AIR_MODULE_ID:
-						uint8_t telemetryData[] = {  
-							0x7C, 
-							HOTT_GENERAL_AIR_MODULE_ID,  
-							0x00,										/* 2							Alarm */ 
-							HOTT_GENERAL_AIR_SENSOR_ID, 
-							0x00, 0x00,									/*  4,  5						Inverted Value 1 and 2 */ 
-							0x00, 0x00, 0x00, 0x00, 0x00, 0x00,			/*  6,  7,  8,  9, 10, 11		Voltage Cell 1-6, in [2mV]/step */ 
-							0x00, 0x00,									/* 12, 13						Battetry 1, LSB/MSB, in [100mV]/step, 50 == 5V */ 
-							0x00, 0x00,									/* 14, 15						Battetry 2, LSB/MSB, in [100mV]/step, 50 == 5V */ 
-							0x14,										/* 16							Temp 1, Offset -20, in [°C] */  
-							0x14,										/* 17							Temp 2, Offset -20, in [°C] */ 
-							0x00,										/* 18							Fuel percentage */ 
-							0x00, 0x00,									/* 19, 20						Fuel, LSB/MSB, in  [mL] (milliliter) */ 
-							0x00, 0x00,									/* 21, 22						RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm */
-							0xF4, 0x01,									/* 23, 24						Altitude, LSB/MSB, Offset -500, 500 = 0m */ 
-							0x00, 0x00,									/* 25, 26						Climb rate, FIXME, in m/1s */  
-							0x00,										/* 27							Climb rate, FIXME, in m/3s */ 
-							0x00, 0x00,									/* 28, 29						Current, LSB/MSB in 100mA steps, 1 = 0.1A */
-							0x00, 0x00,									/* 30, 31						Main voltage, LSB/MSB */
-							0x00, 0x00,									/* 32, 33						Capacity, LSB/MSB, in [mAh] */
-							0x00, 0x00,									/* 34, 35						Speed, in [km/h] */ 
-							0x00,										/* 36							min. cell voltage */
-							0x00,										/* 37							Cell number with min. voltage */
-							0x00, 0x00,									/* 38, 39						RPM2, LSB/MSB, [10rev]/step, 300 == 3000rpm */
-							0x00,										/* 40							General error number */
-							0x00,										/* 41							Pressure */
-							0x00,										/* 42							Version Number */ 
-							0x7D,										/* 43							End sign */ 
-							0x00										/* 44							Checksum */ 
-						}; 
+						telemetryData[1] = HOTT_GENERAL_AIR_MODULE_ID;
 
+						// Warnings
 						telemetryData[2] = _warningID;
+
+						telemetryData[3] = HOTT_GENERAL_AIR_SENSOR_ID;
 
 						// show inverted
 						telemetryData[4] = _inverted1;
@@ -236,14 +300,14 @@ void HoTTServer::processRequest() {
 
 						// climb rate m/s
 						//höherwertiges Byte zum Bezugswert 117 (ca. 0 Meter) berechnen 
-						uint8_t OFFSET_STEIGRATE = 117;
-						int steigrate_meter = _climbRate1s / 2.560+OFFSET_STEIGRATE;
+						OFFSET_STEIGRATE = 117;
+						steigrate_meter = _climbRate1s / 2.560+OFFSET_STEIGRATE;
 						//Rest berechnen, um das niederwertige Byte zu bestimmen    
-						float rest = _climbRate1s-(2.560*(steigrate_meter-OFFSET_STEIGRATE));
+						rest = _climbRate1s-(2.560*(steigrate_meter-OFFSET_STEIGRATE));
 						//Bezugswert ist 40, denn Byte24=117 + Byte23=40 entsprechen 0.0 Metern)
-						int OFFSET_DEZIMETER = 40;
+						OFFSET_DEZIMETER = 40;
 						if(_climbRate1s > 0) OFFSET_DEZIMETER = 50;
-						int steigrate_dezimeter = OFFSET_DEZIMETER+rest*100;
+						steigrate_dezimeter = OFFSET_DEZIMETER+rest*100;
 						//da beim oben stehenden Algorithmus (echte "int"-Werte!) 
 						//im niederwertigen Byte23 auch Werte über 255 auftreten könnten,
 						//muss hier geprüft werden
@@ -285,93 +349,33 @@ void HoTTServer::processRequest() {
 						telemetryData[41] = _pressure*10;
 
 						_sendData(telemetryData, 45);
-
-						break;
-#endif
-#ifdef HOTT_GPS_MODULE
-					case HOTT_GPS_MODULE_ID:
-						uint8_t telemetryData[] = {  
-							0x7C, 
-							HOTT_GPS_MODULE_ID,  
-							0x00,										/* 2							Alarm */ 
-							HOTT_GPS_SENSOR_ID, 
-							0x00, 0x00,									/*  4,  5						Inverted Value 1 and 2 */ 
-							0x00,										/*  6							Flight direction */  
-							0x00, 0x00,									/*  7,  8						Ground speed, LSB/MSB */  
-							0x00, 0x00, 0x00, 0x00, 0x00,				/*  9, 10, 11, 12, 13			Latitude */ 
-							0x00, 0x00, 0x00, 0x00, 0x00,				/* 14, 15, 16, 17, 18			Longitude */ 
-							0x00, 0x00,									/* 19, 20						Distance, LSB/MSB, in [m] */ 
-							0xF4, 0x01,									/* 21, 22						Altitude, Offset -500, 500 == 0, in [m] */ 
-							0x78, 0x00,									/* 23, 24						Climb rate, in [m/s], 1 = 0.01m/s */  
-							0x78,										/* 25							Climb rate, in [m/3s], 120 = 0 */ 
-							0x00,										/* 26							Number of satelites */  
-							0x00,										/* 27							GPS fix character */ 
-							0x00,										/* 28							Home direction */ 
-							0x00,										/* 29							angle x-direction */ 
-							0x00,										/* 30							angle y-direction */ 
-							0x00,										/* 31							angle z-direction */ 
-							0x00, 0x00,									/* 32, 33						gyro x */ 
-							0x00, 0x00,									/* 34, 35						gyro y */  
-							0x00, 0x00,									/* 36, 37						gyro z */ 
-							0x00,										/* 38							Vibrations */ 
-							0x00,										/* 39							ASCII Free Character 4 */ 
-							0x00,										/* 40							ASCII Free Character 5 */ 
-							0x00,										/* 41							ASCII Free Character 6 */ 
-							0x00,										/* 42							Version Number */ 
-							0x7D,										/* 43							End sign */ 
-							0x00										/* 44							Checksum */ 
-						}; 
-
-						telemetryData[2] = _warningID;
-
-						// show inverted
-						telemetryData[4] = _inverted1;
-						telemetryData[5] = _inverted1;
-						
-						// Flight direction
-						telemetryData[6] = _flightDirection / 2;
-						
-						// speed
-						telemetryData[7] = lowByte(_speed);
-						telemetryData[8] = highByte(_speed);
-						
-						// distance
-						telemetryData[19] = lowByte(_distance);
-						telemetryData[20] = highByte(_distance);
-						
-						// altitude
-						telemetryData[21] = lowByte(_altitude+500);
-						telemetryData[22] = highByte(_altitude+500);
-
-						_sendData(telemetryData, 45);
-						
-						break;
-#endif
-#ifdef HOTT_VARIO_MODULE
-					case HOTT_VARIO_MODULE_ID:
-						uint8_t telemetryData[] = {  
-							0x7C, 
-							HOTT_VARIO_MODULE_ID,  
-							0x00,										/* 2							Alarm */ 
-							HOTT_VARIO_SENSOR_ID, 
-							0x00, 0x00,									/*  4							Inverted Value 1 */ 
-							0xF4, 0x01,									/*  5,  6  						Altitude, Offset -500, 500 == 0, in [m] */
-							0xF4, 0x01,									/*  7,  8						Max. altitude, Offset -500, 500 == 0, in [m] */
-							0xF4, 0x01,									/*  9, 10						Min. altitude, Offset -500, 500 == 0, in [m] */
-							0x30, 0x75,									/* 11, 12						Climb rate, in [m/s] */ 
-							0x30, 0x75,									/* 13, 14						Climb rate, in [m/3s] */ 
-							0x30, 0x75,									/* 15, 16						Climb rate, in [m/10s] */  
-							0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 17, 18, 19, 20, 21, 22, 23	ASCII */ 
-							0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 24, 25, 26, 27, 28, 29, 30	ASCII */ 
-							0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	0x00,	/* 31, 32, 33, 34, 35, 36, 37	ASCII */ 
-							0x00, 0x00, 0x00, 0x00,						/* 38, 39, 40, 41				free */ 
-							0x00,										/* 42							Version Number */ 
-							0x7D,										/* 43							End sign */ 
-							0x00										/* 44							Checksum */ 
-						}; 
+				} else if (requestID == HOTT_VARIO_MODULE_ID && _isModuleRegistered(HoTTServerVario) ) {
+/*
+ 0 							Start Byte
+ 1							Module ID 
+ 2							Alarm
+ 3							Sensor ID
+ 4							Inverted Value 1
+ 5,  6  						Altitude, Offset -500, 500 == 0, in [m]
+ 7,  8						Max. altitude, Offset -500, 500 == 0, in [m]
+ 9, 10						Min. altitude, Offset -500, 500 == 0, in [m]
+11, 12						Climb rate, in [m/s]
+13, 14						Climb rate, in [m/3s]
+15, 16						Climb rate, in [m/10s]
+17, 18, 19, 20, 21, 22, 23	ASCII
+24, 25, 26, 27, 28, 29, 30	ASCII
+31, 32, 33, 34, 35, 36, 37	ASCII
+38, 39, 40, 41				free
+42							Version Number 
+43							End sign
+44							Checksum
+*/ 
+						telemetryData[1] = HOTT_VARIO_MODULE_ID;
 
 						// Warnings
 						telemetryData[2] = _warningID;
+
+						telemetryData[3] = HOTT_VARIO_SENSOR_ID;
 
 						// show inverted
 						telemetryData[4] = _inverted1;
@@ -390,14 +394,14 @@ void HoTTServer::processRequest() {
 
 						// climb m/1s							
 						//höherwertiges Byte zum Bezugswert 117 (ca. 0 Meter) berechnen 
-						uint8_t OFFSET_STEIGRATE = 117;
-						int steigrate_meter = _climbRate1s / 2.560+OFFSET_STEIGRATE;
+						OFFSET_STEIGRATE = 117;
+						steigrate_meter = _climbRate1s / 2.560+OFFSET_STEIGRATE;
 						//Rest berechnen, um das niederwertige Byte zu bestimmen    
-						float rest = _climbRate1s-(2.560*(steigrate_meter-OFFSET_STEIGRATE));
+						rest = _climbRate1s-(2.560*(steigrate_meter-OFFSET_STEIGRATE));
 						//Bezugswert ist 40, denn Byte24=117 + Byte23=40 entsprechen 0.0 Metern)
-						int OFFSET_DEZIMETER = 40;
+						OFFSET_DEZIMETER = 40;
 						if(_climbRate1s > 0) OFFSET_DEZIMETER = 50;
-						int steigrate_dezimeter = OFFSET_DEZIMETER+rest*100;
+						steigrate_dezimeter = OFFSET_DEZIMETER+rest*100;
 						//da beim oben stehenden Algorithmus (echte "int"-Werte!) 
 						//im niederwertigen Byte23 auch Werte über 255 auftreten könnten,
 						//muss hier geprüft werden
@@ -452,47 +456,116 @@ void HoTTServer::processRequest() {
 						}
 
 						_sendData(telemetryData, 45);
-							
-						break;
-#endif
-#ifdef HOTT_AIRESC_MODULE
-					case HOTT_AIRESC_MODULE_ID:
-						uint8_t telemetryData[] = {  
-							0x7C, 
-							HOTT_AIRESC_MODULE_ID,  
-							0x00,										/* 2							Alarm */ 
-							HOTT_AIRESC_SENSOR_ID, 
-							0x00, 0x00,									/*  4,  5						Inverted Value 1 and 2 */ 
-							0x00, 0x00,									/*  6,  7						Input voltage, LSB/MSB, in [100mV]/step, 50 == 5V */
-							0x00, 0x00,									/*  8,  9						min. input voltage, LSB/MSB, in [100mV]/step, 50 == 5V */  
-							0x00, 0x00,									/* 10, 11						Capacity, LSB/MSB, in [mAh] */
-							0x00,										/* 12							ESC temperature, in [°C] */
-							0x00,										/* 13							ESC max. temperature, in [°C] */
-							0x30, 0x75,									/* 14, 15						Current, LSB/MSB in [100mA]/step, 1 = 0.1A */ 
-							0x30, 0x75,									/* 16, 17						max. current, LSB/MSB in [100mA]/step, 1 = 0.1A */ 
-							0x00, 0x00,									/* 18, 19						RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm */ 
-							0x00, 0x00,									/* 20, 21						max. RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm */ 
-							0x00,										/* 22							Throttle, in [%] */
-							0x00, 0x00,									/* 23, 24						Speed, in [km/h] */ 
-							0x00, 0x00,									/* 25, 26						max. Speed, in [km/h] */ 
-							0x00,										/* 27							BEC voltage */
-							0x00,										/* 28							BEC min. voltage */
-							0x00,										/* 29							BEC current */ 
-							0x00, 0x00,									/* 30, 31						BEC max. current */
-							0x00,										/* 32							PWM */
-							0x00,										/* 33							BEC temperature */ 
-							0x00,										/* 34							BEC max. temperature */
-							0x00,										/* 35							motor temperature */
-							0x00,										/* 36							motor max. temperature */
-							0x00, 0x00,									/* 37, 38						Motor RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm */ 
-							0x00,										/* 39							motor timing */
-							0x00,										/* 40							motor timing advanced */
-							0x00,										/* 41							motor highest current */
-							0x00,										/* 42							Version Number */ 
-							0x7D,										/* 43							End sign */ 
-							0x00										/* 44							Checksum */ 
-						}; 
+				} else if (requestID == HOTT_GPS_MODULE_ID && _isModuleRegistered(HoTTServerGPS) ) {
+/*
+ 0					Start sign
+ 1					Module ID
+ 2					Warning ID / Alarm
+ 3 					Sensor ID
+ 4,  5				Inverted Value 1 and 2
+ 6 					Flight direction 
+ 7,  8				Ground speed, LSB/MSB
+ 9, 10, 11, 12, 13	Latitude
+14, 15, 16, 17, 18	Longitude
+19, 20				Distance, LSB/MSB, in [m]
+21, 22				Altitude, Offset -500, 500 == 0, in [m]
+23, 24				Climb rate, in [m/s], 1 = 0.01m/s
+25					Climb rate, in [m/3s], 120 = 0
+26					Number of satelites
+27					GPS fix character
+28					Home direction
+29					angle x-direction
+30					angle y-direction
+31					angle z-direction
+32, 33				gyro x
+34, 35				gyro y
+36, 37				gyro z
+38					Vibrations
+39					ASCII Free Character 4
+40					ASCII Free Character 5
+41					ASCII Free Character 6
+42					Version Number
+43					End sign
+44					Checksum 
+*/
+						telemetryData[1] = HOTT_GPS_MODULE_ID;
 
+						// Warnings
+						telemetryData[2] = _warningID;
+
+						telemetryData[3] = HOTT_GPS_SENSOR_ID;
+
+						// show inverted
+						telemetryData[4] = _inverted1;
+						telemetryData[5] = _inverted1;
+						
+						// Flight direction
+						telemetryData[6] = _flightDirection / 2;
+						
+						// speed
+						telemetryData[7] = lowByte(_speed);
+						telemetryData[8] = highByte(_speed);
+						
+						// distance
+						telemetryData[19] = lowByte(_distance);
+						telemetryData[20] = highByte(_distance);
+						
+						// altitude
+						telemetryData[21] = lowByte(_altitude+500);
+						telemetryData[22] = highByte(_altitude+500);
+
+						// climb rate
+						telemetryData[23] = 0x78;
+						telemetryData[24] = 0x00;
+
+						_sendData(telemetryData, 45);
+				} else if (requestID == HOTT_AIRESC_MODULE_ID && _isModuleRegistered(HoTTServerESC) ) {
+/*
+ 0		Start byte
+ 1		Module ID
+ 2		Alarm
+ 3		Sensor ID
+ 4,  5	Inverted Value 1 and 2
+ 6,  7	Input voltage, LSB/MSB, in [100mV]/step, 50 == 5V
+ 8,  9	min. input voltage, LSB/MSB, in [100mV]/step, 50 == 5V
+10, 11	Capacity, LSB/MSB, in [mAh]
+12		ESC temperature, in [°C]
+13		ESC max. temperature, in [°C]
+14, 15	Current, LSB/MSB in [100mA]/step, 1 = 0.1A
+16, 17	max. current, LSB/MSB in [100mA]/step, 1 = 0.1A
+18, 19	RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm
+20, 21	max. RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm
+22		Throttle, in [%]
+23, 24	Speed, in [km/h]
+25, 26	max. Speed, in [km/h]
+27		BEC voltage
+28		BEC min. voltage
+29		BEC current
+30, 31	BEC max. current
+32		PWM
+33		BEC temperature
+34		BEC max. temperature
+35		motor temperature
+36		motor max. temperature
+37, 38	Motor RPM, LSB/MSB, [10rev]/step, 300 == 3000rpm
+39		motor timing
+40		motor timing advanced
+41		motor highest current
+42		Version Number
+43		End sign
+44		Checksum
+*/ 
+
+						telemetryData[1] = HOTT_AIRESC_MODULE_ID;
+
+						// Warnings
+						telemetryData[2] = _warningID;
+
+						telemetryData[3] = HOTT_AIRESC_SENSOR_ID;
+						
+						// show inverted
+						telemetryData[4] = _inverted1;
+						telemetryData[5] = _inverted1;
 						
 						// main voltage
 						telemetryData[6] = lowByte((uint16_t)(_mainVoltage*10));
@@ -555,9 +628,6 @@ void HoTTServer::processRequest() {
 						telemetryData[37] = _motorAdvancedTiming;
 
 						_sendData(telemetryData, 45);
-
-						break;
-#endif
 				}
 			}
 			break;				
@@ -582,21 +652,16 @@ void HoTTServer::setInverted(uint8_t invertedID, uint8_t inverted) {
 }
 	
 void HoTTServer::setCapacity(uint16_t capacity) {
-#ifdef HOTT_ELECTRIC_AIR_MODULE || HOTT_GENERAL_AIR_MODULE || HOTT_AIRESC_MODULE
 	_capacity = capacity;
-#endif
 }
 void HoTTServer::setCurrent(HOTTCurrent_e sensorID, float current) {
 	switch (sensorID) {
-#ifdef HOTT_ELECTRIC_AIR_MODULE || HOTT_GENERAL_AIR_MODULE || HOTT_AIRESC_MODULE
 		case HOTT_MAIN_CURRENT:
 			current = constrain(current, 0.0, 999.9);
 			
 			_current = current;
 			_maxCurrent = max(_maxCurrent, current);
 			break;
-#endif
-#ifdef HOTT_AIRESC_MODULE
 		case HOTT_BEC_CURRENT:
 			current = constrain(current, 0.0, 25.5);
 			
@@ -608,7 +673,6 @@ void HoTTServer::setCurrent(HOTTCurrent_e sensorID, float current) {
 			
 			_maxMotorCurrent = (uint8_t)current;
 			break;
-#endif
 	}
 }
 void HoTTServer::setVoltage(HOTTVoltage_e sensorID, float voltage) {
