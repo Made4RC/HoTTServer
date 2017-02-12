@@ -1,4 +1,5 @@
 HoTTServer	KEYWORD1
+registerModule	KEYWORD2
 start	KEYWORD2
 processRequest	KEYWORD2
 setWarning	KEYWORD2
