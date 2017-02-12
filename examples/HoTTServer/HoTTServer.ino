@@ -1,14 +1,10 @@
 #include "HoTTServer.h"
 
-// #define HOTT_ELECTRIC_AIR_MODULE
-// #define HOTT_GENERAL_AIR_MODULE
-#define HOTT_VARIO_MODULE
-// #define HOTT_GPS_MODULE
-// #define HOTT_AIRESC_MODULE
-
 HoTTServer server;
 
 void setup() {
+	server.registerModule(HoTTServerVario);
+	server.start();
 }
 
 void loop() {
@@ -26,7 +22,7 @@ void loop() {
 	// server.setFuel(500);
 	// server.setRPM(HOTT_PRIMARY_RPM,18500);
 	server.setAltitude(123);
-	server.setClimbRate(HOTT_CLIMBRATE_1S, 5.7);
+	server.setClimbRate(HOTT_CLIMBRATE_1S, 6.7);
 	server.setClimbRate(HOTT_CLIMBRATE_3S, -45.7);
 	server.setClimbRate(HOTT_CLIMBRATE_10S, 7.6);
 	// server.setVoltage(HOTT_MAIN_VOLTAGE, 42.56);
