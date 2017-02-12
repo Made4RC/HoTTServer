@@ -1,4 +1,5 @@
 HoTTServer	KEYWORD1
+start	KEYWORD2
 processRequest	KEYWORD2
 setWarning	KEYWORD2
 setInverted	KEYWORD2
