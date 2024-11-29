@@ -1,6 +1,6 @@
 #include "HoTTServer.h"
 
-HoTTServer server;
+HoTTServer server(10,11);;
 
 void setup() {
 	server.registerModule(HoTTServerVario);

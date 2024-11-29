@@ -1,8 +1,6 @@
 #include "HoTTServer.h"
 
-SoftwareSerial swSerial(10,11);
-
-HoTTServer::HoTTServer() {
+HoTTServer::HoTTServer(uint8_t rxPin, uint8_t txPin) : _serialPort(rxPin, txPin){
 	setWarning(HOTT_ALARM_NONE);
 }
 
@@ -11,7 +9,9 @@ void HoTTServer::registerModule(uint8_t module) {
 }
 
 void HoTTServer::start() {
-	swSerial.begin(19200);
+	_serialPort.begin(19200);
+	while(_serialPort.available())
+	_serialPort.read();
 }
 
 void HoTTServer::_sendData(uint8_t *data, uint8_t size) {
@@ -26,10 +26,13 @@ void HoTTServer::_sendData(uint8_t *data, uint8_t size) {
 
 	// Daten senden
 	for(int j = 0; j < size; j++){
-		swSerial.write(data[j]);
-		delay(2);
-		swSerial.read();
+		_serialPort.write(data[j]);
+		delayMicroseconds(HOTT_TX_DELAY);
+		//_serialPort.read();
 	}
+	delay(2);
+	while(_serialPort.available())
+		_serialPort.read();
 }
 
 bool HoTTServer::_isModuleRegistered(uint8_t module) {
@@ -39,14 +42,16 @@ bool HoTTServer::_isModuleRegistered(uint8_t module) {
 		return 1;
 }
 
-void HoTTServer::processRequest() {
-	if (swSerial.available() >= 2) {
-		uint8_t requestMode = swSerial.read();
-		uint8_t requestID = swSerial.read();
-
+bool HoTTServer::processRequest() {
+	bool requestProcessed = false;
+	if (_serialPort.available() >= 2) {
+		uint8_t requestMode = _serialPort.read();
 		switch (requestMode) {
 			case HOTT_TEXT_MODE_REQUEST_ID:
-			{
+			{	
+				requestProcessed = true;
+				delayMicroseconds(HOTT_SEND_DELAY);
+				uint8_t requestID = _serialPort.read();
 				switch (requestID & 0x0f) { 
 						case HOTT_TEXT_MODE_IDLE: 
 							break; 
@@ -139,6 +144,9 @@ void HoTTServer::processRequest() {
 			break;
 			case HOTT_BINARY_MODE_REQUEST_ID:
 			{
+				requestProcessed = true;
+				delayMicroseconds(HOTT_SEND_DELAY);
+				uint8_t requestID = _serialPort.read();
 				uint8_t telemetryData[] = {  
 					0x7C, 										/*  0	Start Byte */
 					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -630,9 +638,10 @@ void HoTTServer::processRequest() {
 						_sendData(telemetryData, 45);
 				}
 			}
-			break;				
-		}			
+			break;
+		}
 	}
+	return requestProcessed;
 }
 
 void HoTTServer::setWarning(HOTTAlarm_e warningID) {

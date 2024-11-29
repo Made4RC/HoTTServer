@@ -25,12 +25,15 @@
 
 
 #ifndef HoTTServer_h
-#define HoTTServer_h HoTTServer_h
+#define HoTTServer_h
 
 #include "Arduino.h"
 #include "SoftwareSerial.h"
 
 // Protocoll definitions
+
+#define HOTT_TX_DELAY     1500  	// time in us between 2 bytes in a binpacket
+#define HOTT_SEND_DELAY   4500  	// HoTT line idle-protocol
 
 // Graupner #33620 Electric Air Module (EAM)
 #define HOTT_ELECTRIC_AIR_MODULE_ID					0x8E
@@ -177,6 +180,9 @@ typedef enum {
 class HoTTServer {
 
 private:
+
+	SoftwareSerial _serialPort;
+
 	HOTTAlarm_e _warningID;
 	uint8_t	_inverted1;
 	uint8_t	_inverted2;
@@ -248,11 +254,11 @@ private:
 	bool _isModuleRegistered(uint8_t module);
 
 public:
-	HoTTServer();
+	HoTTServer(uint8_t rxPin, uint8_t txPin);
 	
 	void registerModule(uint8_t module);
 	void start();
-	void processRequest();
+	bool processRequest();
 	
 	void setWarning(HOTTAlarm_e warningID);
 	void setInverted(uint8_t invertedID, uint8_t inverted);
