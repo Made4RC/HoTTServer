@@ -28,9 +28,7 @@ void HoTTServer::_sendData(uint8_t *data, uint8_t size) {
 	for(int j = 0; j < size; j++){
 		_serialPort.write(data[j]);
 		delayMicroseconds(HOTT_TX_DELAY);
-		//_serialPort.read();
 	}
-	delay(2);
 	while(_serialPort.available())
 		_serialPort.read();
 }
